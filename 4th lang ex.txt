@@ -1,0 +1,130 @@
+{ #ex1 }
+
+1 2 3 4
+rot
+dup
+
+{ #ex 3 }
+   { #square a number and leave it to top of stack }
+dup *
+
+
+{ #ex 4 }
+  { #print out the cube of a number }
+
+dup dup * * .   
+
+{ #ex 6 }
+
+{ 32 memory locations are needed to store a integer variable }
+
+{ 2**31 should be the largest number }
+
+{#ex 7 }
+
+44 constant x
+variable y
+variable n
+
+22 y !
+0 n !
+
+
+{ then the math operations should be } 
+x y @ *
+
+{ to store the value }
+
+x y @ * n !   { # when a constant is used, we can just use the constant directly. }
+               { # if a variable is used, variable @ has to be used, otherwise it will do operation on address number }
+               
+
+{ # ex 8 }
+
+
+: cubic dup dup * * . ;    { # the word for cubic opreation, the result will not be stored in stack, will be printed }
+
+: cubic_s dup dup * * dup . ; { # the result will be stored in stack as well as be printed }
+
+
+{ # ex 10        empty_stack code }
+
+: clear depth 1 + 1 do i drop . loop ;   { depth 1 + is the number of values in stack +1, since the loop take n-1 as  the end }
+                                               { start with 1, operate the drop for the index appointed value in stack, drop from the top }
+
+
+{ # ex 11 }
+
+: set 11 1 do 11 1 do i j * loop loop ;       { i corresponds to inner, j corresponds to outter }
+
+
+{ # ex 12 }
+
+: set_1 11 1 do i 2 * cr dup dup * loop ;     { 11 1 means count from 1 - 10,  i 2 * means times 2 to each index, cr dup means copy the value to next line (sub-outcome) }
+                                              { dup * means square the number(sub-outcome) in the next line then retrun to do }
+
+
+
+{ # ex 13 check top stack wether is a mutltiple of 5 or not }
+: checktop
+	cr dup                                                                 { have to take the value to next line, otherwise it would give strange answers}
+	5 mod 0=                                                               { reminder checking }
+		if ." the number " dup . ." is a multiple of 5 "                   { one more dup inside would leave the value in stack } 
+			else ." the number " . ." is not a nultiple of 5 "             { no dup inside would take the value from the stack }
+	then cr ;
+
+
+
+{ # ex 14 }
+
+: test 
+	cr dup		                                       { take the value from the top of stack } 
+	case                                               { start }
+		2 of 2 = endof                                 { take the value and compare, return logic value }
+		5 of 5 = endof
+		7 of 7 = endof
+	." nothing to do with this # " dup .               { action when the # is not the list above, leave a copy of # in stack and print the # }
+	endcase                                            { end }
+	cr ;
+
+
+{ # ex 15 }
+
+: set2 cr 59 48 do 10 0 do i j + emit loop cr 10 +loop ;  { 1st cr put result to next line, outer doloop set the array, }
+                                                          { the innere doloop print the emit charac one by one in that array  }
+                                                          { but cannot have space between charac ? }
+														  
+: set2_0 cr 59 48 do 10 0 do i j + emit 1 u.r loop cr 10 +loop ;   { tried u.r but it did not work as expected, it leaves space between charac with some values ? }
+
+
+{ # ex 16 }
+
+: text
+	cr dup                                                  { copy the top stack, put it into bext line }
+	case
+	
+		0 of 0 = drop ." zero " endof                       { text conversion }
+		1 of 1 = drop ." one " endof
+		2 of 2 = drop ." two " endof
+		3 of 3 = drop ." three " endof
+		4 of 4 = drop ." four " endof
+		5 of 5 = drop ." five " endof
+		6 of 6 = drop ." six " endof
+		7 of 7 = drop ." seven " endof
+		8 of 8 = drop ." eight " endof
+		9 of 9 = drop ." nine " endof
+		10 of 10 = drop ." ten " endof
+		
+	cr .                                                     { if number is not within 0 to 10, just print the number }
+	endcase
+	cr ;
+	
+
+
+
+
+
+
+
+
+
