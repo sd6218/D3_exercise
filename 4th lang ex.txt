@@ -123,7 +123,97 @@ x y @ * n !   { # when a constant is used, we can just use the constant directly
 
 
 
+{ ex 17 - 20 }
 
+
+create small_array 100 allocate drop                        { set a constant for 100 bytes }      
+
+
+: show_array 9 0 do test_array i + c@ 5 .r loop ;           { test spacing between elemnts with small array }
+
+
+: show 
+	cr                                                      { start from the next line }
+	100 0 do small_array i + c@ 5 .r                        { print values with 5 spaces between elements  }
+	i 1 +                                                   { set up the conditon to return to next line } 
+	10 mod 0=                                               { jumping point }
+	if cr                                                   { at every 10th value jump }
+	then loop ; 
+
+
+: reset small_array 100 0 fill ;                            { cannot reset ?????????????????????????? }
+: reset small_array 20 0 fill ;                             { it clear the first 20 bytes }
+: reset small_array 50 0 fill ;                             { it sometime clears the first 50 bytes, but sometimes not, when show word is executed after this word, if it clears
+                                                              the first 50 bytes, show can be exeucted, if not, show cannot be recognized }  
+
+
+: reset 100 0 do 0 small_array i + c! loop ;                { in the end, adding 0 each time was used to reset the array }
+                                                            { have to reset the matrix before show, otherwise crushed }
+
+: linear 5 1 do i 1 - small_array i + c! loop ;             { put small number first, it stores the number from 3rd element which is not what we expected }
+: linear 5 0 do i  small_array i + c! loop ;
+
+
+: linear 100 0 do i small_array i + c! loop ;               { adding 0-99 to the appointed address constant }
+
+
+
+: array_!                                                   { first test on put value into (0,0) }
+                                                            { input format ( value x y ) }
+	cr dup 
+	case
+	
+		0 of 0 = drop  0 = drop dup small_array 0 + c! 
+			
+		endof
+		
+	endcase
+	show ;
+
+
+
+: array_!                                                   { 3rd test on putting test and conditions }
+                                                            { input format ( value x y ) }
+	dup 10 <                                                { copy the y value and take it to compare  }
+	if 10 *                                                 { check index and do operation }
+		else cr ." y wrong index " .
+	then                                                    { 10 * y is at the top stack }
+	
+	1 pick 10 <                                             { take x value out and compare }
+	if +                                                    { check index and do + operation }
+		else cr ." x wrong index " .
+	then                                                    { array index 10 * y + x is now at the top stack }
+	
+	1 pick 256 <                                            { take n value out and compare }
+    if small_array + c!                                     { check index and do writting operation }
+		else cr ." n wrong size "
+	then
+	
+	show ;
+
+
+
+: array_@       
+	dup 10 <                                               { copy the y value and take it to compare  }
+	if 10 *                                                { check index }
+		else cr ." y wrong index " .
+	then                                                   { 10 * y is at the top stack }
+	1 pick 10 <                                            { take x value out and compare }
+	if +                                                   { check index }
+		else cr ." x wrong index " .
+	then                                                   { array index 10 * y + x is now at the top stack }
+	small_array + c@ ;                                     { top stack is used to read-in the array }
+	
+: te                                                      { testing the condition for array_@ } 
+	dup 10 <
+	if 10 * 
+		else dup ." y wrong index "
+	then 
+	1 pick 10 < 
+	if +
+		else dup ." x wrong index "
+	then ;
+	
 
 
 
