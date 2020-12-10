@@ -120,7 +120,31 @@ x y @ * n !   { # when a constant is used, we can just use the constant directly
 	cr ;
 	
 
+{ # ex 17 - 20 } 
+create small_array 100 allocate drop
 
+: show 
+	cr                                                      { start from the next line }
+	100 0 do small_array i + c@ .                           { print values }
+	i 1 +                                                   { set up the conditon to return to next line } 
+	10 mod 0=                                               { jumping point }
+	if cr                                                   { at every 10th value jump }
+	then loop ; 
+
+
+: reset small_array 100 0 fill ;                            { cannot reset ?????????????????????????? }
+
+: array_! 
+	cr dup 
+	case
+	
+		0 of 0 = drop 0 = drop dup small_array 0 + c! endof
+		
+	endcase
+	show ;
+
+
+: linear_small_array 101 1 do 100 0 do i small_array j + c! loop loop ;                    { violated }
 
 
 
