@@ -120,12 +120,15 @@ x y @ * n !   { # when a constant is used, we can just use the constant directly
 	cr ;
 	
 
-{ # ex 17 - 20 } 
-create small_array 100 allocate drop
+{ ex 17 - 20 }
+
+
+create small_array 100 allocate drop                        
+
 
 : show 
 	cr                                                      { start from the next line }
-	100 0 do small_array i + c@ .                           { print values }
+	100 0 do small_array i + c@ . 3 SPACES                  { print values }
 	i 1 +                                                   { set up the conditon to return to next line } 
 	10 mod 0=                                               { jumping point }
 	if cr                                                   { at every 10th value jump }
@@ -133,6 +136,14 @@ create small_array 100 allocate drop
 
 
 : reset small_array 100 0 fill ;                            { cannot reset ?????????????????????????? }
+: reset small_array 20 0 fill ;                             { it clear the first 20 bytes }
+: reset small_array 50 0 fill ;                             { it sometime clears the first 50 bytes, but sometimes not, when show word is executed after this word, if it clears
+                                                              the first 50 bytes, show can be exeucted, if not, show cannot be recognized }  
+
+
+: reset 100 0 do 0 small_array i + c! loop ;                { in the end, adding 0 each time was used to reset the array }
+
+: linear_small_array 101 1 do i 1 - small_array i + c! loop ;               { the command runs, but cannot be used in show word , it raised violated }
 
 : array_! 
 	cr dup 
@@ -144,7 +155,8 @@ create small_array 100 allocate drop
 	show ;
 
 
-: linear_small_array 101 1 do 100 0 do i small_array j + c! loop loop ;                    { violated }
+
+
 
 
 
