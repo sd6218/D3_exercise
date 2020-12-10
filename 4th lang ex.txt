@@ -186,7 +186,7 @@ create small_array 100 allocate drop                        { set a constant for
 	
 	1 pick 256 <                                            { take n value out and compare }
     if small_array + c!                                     { check index and do writting operation }
-		else cr ." n wrong size "
+		else cr abort" n wrong size "
 	then
 	
 	show ;
