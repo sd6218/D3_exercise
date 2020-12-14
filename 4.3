@@ -54,7 +54,7 @@ CREATE SEED  123475689 ,
    THEN  DUP R> !
    SWAP MOD ;
    
-: random_@ 
+: random_! 
 	
 	array-size @ 0 do 9 Rnd array i + c! loop ;
   
@@ -62,3 +62,43 @@ CREATE SEED  123475689 ,
  { # cal_size and show and random_@ and show, follow this order                }
   
   
+{ -------------------------------------find number of elements in the matrix-------------------------------- }
+
+create  count_ar  4 9 *   allocate  drop drop
+
+: reset_cou 9 0 do 0 count_ar  i + ! loop ;
+
+: show_cou
+	
+	cr
+	." number "
+	cr
+	9 0 do i  7 .r  loop   
+	cr
+	." counts "
+	cr
+	9 0 do count_ar i + @  7 .r loop ;
+
+: count                                           { this should retrun 25 0s }
+	cr 
+	array-size @ 0 
+	do  10 0 do
+	array j + c@ 
+    i =
+	if count_ar i + @
+	then
+	loop loop ;
+	
+: c                                                 {  have problem here ??????????????????? trying to used counter }
+	cr 
+	array-size @ 0 
+	do  
+	array i + c@ 
+	case                                   
+		1 of 1 = drop count_ar 1 + @ 1 + endof 
+	endcase
+	loop ;
+
+5 cal_size
+random_!
+reset_cou
