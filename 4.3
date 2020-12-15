@@ -1,6 +1,7 @@
 { ---------------------------------------start------------------------------------------ }
 
-: clear-stack depth 1 + 1 do i drop . loop ;   { depth 1 + is the number of values in stack +1, since the loop take n-1 as  the end }
+: clear  (  -- remove stack values )
+	depth 1 + 1 do i drop . loop ;             { depth 1 + is the number of values in stack +1, since the loop take n-1 as  the end }
                                                { start with 1, operate the drop for the index appointed value in stack, drop from the top }
 
 
@@ -12,31 +13,30 @@
 { Qs  b }
 
 
-variable array-size
-variable array-dim
+{ -----------------------------Global variables------------------------------ }
+
+variable array-size                    { number of elements for the square matrix  }
+variable array-dim                     { dimension number for the square matrix }
 
 
 
+200 array-dim !
+200 dup * array-size !
 
-: cal_size                                                  { input array, take n }
-	dup
-	dup array-dim !
-	dup * array-size ! 
-	drop 
-	 
-	;
+
+{ ---------------------------------------------------------------------------- }
+
 	
-create array array-size @ allocate drop
+array-size @   allocate drop constant array     { create n*n elements , drop the 0 flag, return address to top stack }
 
 
 
-
-: show 	
+: show 	(  -- print array in matrix form )             { word to print the array defined }
 	cr                                                 { start from the next line }
-	array-size @ 0 do array i + c@   5 .r                        { print values with 5 spaces between elements  }
-	i 1 +                                                   { set up the conditon to return to next line } 
-	array-dim @ mod 0=                                            { jumping point }
-	if cr                                                   { at every 10th value jump }
+	array-size @ 0 do array i + c@   5 .r              { print values with 5 spaces between elements  }
+	i 1 +                                              { set up the conditon to return to next line } 
+	array-dim @ mod 0=                                 { jumping point }
+	if cr                                              { at every 10th value jump }
 	then loop ;
 
 
@@ -44,7 +44,7 @@ create array array-size @ allocate drop
 
 CREATE SEED  123475689 ,
 
-: Rnd ( n -- rnd )   { Returns single random number less than n }
+: Rnd ( n -- rondam number )   { Returns single random number less than n }
    SEED              { Minimal version of SwiftForth Rnd.f      }
    DUP >R            { Algorithm Rick VanNorman  rvn@forth.com  }
    @ 127773 /MOD 
@@ -54,11 +54,68 @@ CREATE SEED  123475689 ,
    THEN  DUP R> !
    SWAP MOD ;
    
-: random_@ 
+   
+: random_! ( n -- array )                  { word for entering random number 0 - 9 }
 	
-	array-size @ 0 do 9 Rnd array i + c! loop ;
-  
-  
- { # cal_size and show and random_@ and show, follow this order                }
-  
-  
+	array-size @ 0                         { set indices for array }
+	do 9 Rnd array i + c!                  { adding random number to the array }
+	loop ;
+
+{ -------------------------------------find number of elements in the matrix-------------------------------- }
+
+ 
+create count_ar 4 9 * allot
+
+: reset_cou 36 0 do 0 count_ar  i + ! loop ;
+
+: show_cou
+	
+	cr
+	." number "
+	cr                                   
+	9 0 do i  7 .r  loop                                                { making titles }
+	cr
+	." counts "
+	cr
+	36 0 do i 4 mod 0= if count_ar i + @  7 .r then loop ;              { display number of counts from every 4th element }
+
+: count 
+	reset_cou                                                                  { reset counter to 0 }
+	cr 
+	array-size @ 0 
+	do  10 0 do                                     
+	array j + c@                                                               { reading element from array }
+    i =                                                                        { the reading is used to compare with number 0~9 } 
+	if count_ar i 4 * + @    1 +    count_ar i 4 *   + !                       { taking every 4 th value in 32 bit array, if the reading equals 0~9 the increment the correponding counts stack }
+	then
+	loop loop ;
+	
+: c              { testing counter for number 1 }
+	cr 
+	array-size @ 0 
+	do  
+	array i + c@ 
+	1 =
+	if count_ar 1 4 * + @     1 +     count_ar 1 4 *   + ! then              
+	loop ;
+
+
+{ ----------------------------------------------command----------------------------------------------------- } 
+
+\random_!
+\count
+\show_cou 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
