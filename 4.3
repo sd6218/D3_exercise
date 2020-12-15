@@ -100,6 +100,101 @@ create count_ar 4 9 * allot
 	loop ;
 
 
+{ -----------------------------------------------life rule---------------------------------------------------- }
+
+
+: #_neighbour ( array address --- )
+	
+	
+	array-size @ array-dim @ live-cell @ locals| x n nn add |                      { define local constants n - array-dim, nn - array-size, x - live cell number }
+																				   { add - entered address of array }
+	nn 0 do 
+	
+	{ not at boundry }
+	{ add the reading from 8 surrounding elements and store to array_#_live }
+	
+	add i 1 +  + c@  add i 1 -  + c@  +
+	add i n +  + c@  +  add i n -  + c@  +
+	add i n + 1 -  + c@  +  add i n + 1 +  + c@  +
+	add i n - 1 -  + c@  +  add i n - 1 +  + c@  +
+	array_#_live i + c!
+	
+	
+	case 
+		i                                                                       { take index from the outter do-loop }
+	{ corners }
+	{ add the reading from 3 surrounding elements and store to array_#_live }
+	 
+		0 of 0 drop                                                             { 0 left top }
+				add i 1 +  + c@  add i n +  + c@  +  add i n + 1 +  + c@  + 
+				array_#_live i + c! endof                                       { add the reading from 3 surrounding elements and store to array_#_live }
+				
+		n 1 - of n 1 - drop                                                    { n-1 right top }
+				add i 1 -  + c@  add i n +  + c@  +  add i n + 1 -  + c@  +
+				array_#_live i + c! endof                                       
+				
+		n square n - of n square n - drop                                     { n^2 -n left bot }  
+				add i 1 +  + c@  add i n -  + c@  +  add i n - 1 +  + c@  +
+				array_#_live i + c! endof                                    
+				
+		n square 1 - of n square 1 - drop                                     { n^2 - 1 right bot }
+				add i 1 -  + c@  add i n -  + c@  +  add i n - 1 -  + c@  +
+				array_#_live i + c! endof                                       
+		
+	endcase 
+	
+	{ sides }
+	{ add the reading from 5 surrounding elements and store to array_#_live }
+	
+	
+		n 1 -     1                  do  i j =                                                  { 1 ~ n-2 top side, compare the indices from 2 loops }
+			
+				if add i 1 -  + c@  add i 1 +  + c@  +  add i n +  + c@  +                       
+				add i n + 1 -  + c@  +  add i n + 1 +  + c@  +
+				array_#_live j + c!     
+				 
+		then loop
+		
+		
+		n square 1 -     n square n - 1 +        do i j =                                                   { (n-1)n+1, (n-1)n+2,..., n^2 -2  bot side }
+		
+				if add i 1 -  + c@  add i 1 +  + c@  +  add i n -  + c@  +
+				add i n - 1 -  + c@  +  add i n - 1 +  + c@  +
+				array_#_live j + c!
+		
+		then loop
+		
+		
+		
+		n square n 2 * - 1 +     n        do i j =                                                    { n, 2n ....., n(n-2) left side }
+				
+				if add i n +  + c@  add i n -  + c@  +  add i 1 +  + c@  +
+				add i 1 + n -  + c@  +  add i 1 + n +  + c@  +
+				array_#_live j + c!
+				
+		then n +loop                                                                                  { jump n elements for entering the following row, inner loop }
+		
+	
+	
+		n square n -    n 2 * 1 -      do i j =                                                     { 2n-1,..., (n-1)n-1 right side }
+				
+				if add i n +  + c@  add i n -  + c@  +  add i 1 -  + c@  +
+				add i 1 - n -  + c@  +  add i 1 - n +  + c@  +
+				array_#_live j + c!
+	
+	
+		then n +loop                                                                                   { jump n elements for entering the following row, inner loop }
+	
+	
+		
+	loop ;
+
+
+: a     ( -- nn n )    { test for local constant }  
+	array-size @ array-dim @ locals| n nn add |
+	 add
+	;
+
 { ----------------------------------------------command----------------------------------------------------- } 
 
 \random_!
