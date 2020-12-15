@@ -194,19 +194,123 @@ create count_ar 4 9 * allot
 	array-size @ array-dim @ locals| n nn add |
 	 add
 	;
+: next_gen ( address---- print out yonnger generations ) 
+
+	
+	#_neighbour                  { apply it to input array }
+	
+	array-size @ 0  do
+	
+	array i + c@ 
+	
+	{ dead cell }	
+	0=                                   
+	if array_#_live i + c@                 { reading alive neighbours for each cell }
+	
+		case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 0 array i + c! endof
+             3 of 1 array i + c! endof     { revive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	
+	{ live cell }	
+	else array_#_live i + c@               { reading alive neighbours for each cell }   
+	
+        case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 1 array i + c! endof     { survive }
+             3 of 1 array i + c! endof     { survive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	   
+  then  
+  loop 
+  
+  array show                               { print next generation }
+  
+   ;                             
+	
+: gen ( ---- print out yonnger generations ) 
+	
+	begin
+	
+	array  #_neighbour                  { generate automaticlly }
+	
+	array-size @ 0  do
+	
+	array i + c@ 
+	
+	{ dead cell }	
+	0=                                   
+	if array_#_live i + c@                 { reading alive neighbours for each cell }
+	
+		case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 0 array i + c! endof
+             3 of 1 array i + c! endof     { revive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	
+	{ live cell }	
+	else array_#_live i + c@               { reading alive neighbours for each cell }   
+	
+        case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 1 array i + c! endof     { survive }
+             3 of 1 array i + c! endof     { survive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	   
+  then  
+  loop 
+  
+  array show                               { print next generation }
+  
+  
+  1000 ms
+  key?
+  until ;                     
+
 
 { ----------------------------------------------command----------------------------------------------------- } 
 
 array reset
-array_#_live reset
+array_#_live reset           
+array_ini reset                { reset all arrays }
 
-random_!
+random_!                       { random input }
+store_input                    { store the input array }
 
-array show
-array_#_live show
+array   show
+array_#_live   show
 
-array   #_neighbour
-array_#_live show 
+array    #_neighbour          { count alive neighbours }
+array_#_live   show           { see the matrix for counts of alived neighbours }
+
+\array next_gen                { manully generates }
+\gen                           { automaticlly generates the generations , break when key is pressed }
+
 
 
 
