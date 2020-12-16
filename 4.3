@@ -13,8 +13,7 @@
 	dup * ;
 
 
-: reset ( address --- )
-    array-size @ 0 FILL ;
+
 
 
 
@@ -34,6 +33,8 @@ variable figure                        { for number the generations }
 
 { -----------------------------Global array --------------------------------- }
 
+
+
 	
 array-size @   allocate drop constant array             (  array store generations )      
 				                                                                    { create n*n elements , drop the 0 flag, return address to top stack }
@@ -49,6 +50,9 @@ array-size @   allocate drop constant array_ini       ( array for storing input 
 
 { ---------------------------------------------------------------------------- }
 
+: reset ( address --- )
+    array-size @ 0 FILL ;
+	
 
 : store_input  ( ---- )                                { store input array }
 
@@ -67,7 +71,7 @@ array-size @   allocate drop constant array_ini       ( array for storing input 
 	then loop ;
 
 
-{---------------------------------------adding random number to array-------------------------------------  }
+{ ---------------------------------------adding random number to array-------------------------------------  }
 
 CREATE SEED  123475689 ,
 
@@ -349,14 +353,14 @@ array_ini reset                { reset all arrays }
 random_!                       { random input }
 store_input                    { store the input array }
 
-array   show
-array_#_live   show
+{ array   show }
+{ array_#_live   show }
 
-array    #_neighbour          { count alive neighbours }
-array_#_live   show           { see the matrix for counts of alived neighbours }
+{ array    #_neighbour }         { count alive neighbours }
+{ array_#_live   show }          { see the matrix for counts of alived neighbours }
 
-\array next_gen                { manully generates }
-\gen                           { automaticlly generates the generations , break when key is pressed }
+ { array next_gen  }              { manully generates } 
+gen                           { automaticlly generates the generations , break when key is pressed }
 
 
 
