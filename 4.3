@@ -1,39 +1,66 @@
 { ---------------------------------------start------------------------------------------ }
 
+
+
+{ -----------------------------------useful words--------------------------------------- }
+
+
 : clear  (  -- remove stack values )
 	depth 1 + 1 do i drop . loop ;             { depth 1 + is the number of values in stack +1, since the loop take n-1 as  the end }
                                                { start with 1, operate the drop for the index appointed value in stack, drop from the top }
 
+: square 
+	dup * ;
 
-{ Qs  a }
 
-: square_print cr
-	101 1 do i dup * . loop ;                 { word that print the square of 1-100 } 
+: reset ( address --- )
+    array-size @ 0 FILL ;
 
-{ Qs  b }
 
 
 { -----------------------------Global variables------------------------------ }
 
 variable array-size                    { number of elements for the square matrix  }
 variable array-dim                     { dimension number for the square matrix }
+variable live-cell                     { number or symbol that represent live cell }
+variable figure                        { for number the generations }
 
 
 
-200 array-dim !
-200 dup * array-size !
+10 array-dim !
+10 square array-size !
+1 live-cell !
+0 figure !   
+
+{ -----------------------------Global array --------------------------------- }
+
+	
+array-size @   allocate drop constant array             (  array store generations )      
+				                                                                    { create n*n elements , drop the 0 flag, return address to top stack }
+
+array-size @   allocate drop constant array_#_live      ( number of live neighbours around the current element )     
+                                                                                    { creat n*n elements, drop the 0 flag, return address to top stack } 
+																					
+array-size @   allocate drop constant array_ini       ( array for storing input generation )
+
+
+
 
 
 { ---------------------------------------------------------------------------- }
 
-	
-array-size @   allocate drop constant array     { create n*n elements , drop the 0 flag, return address to top stack }
+
+: store_input  ( ---- )                                { store input array }
+
+	array-size @ 0 do array i + c@  array_ini i + c! loop ;
 
 
 
-: show 	(  -- print array in matrix form )             { word to print the array defined }
+
+: show 	( address -- print array in matrix form )             { word to print the array defined }
+	locals| add |
 	cr                                                 { start from the next line }
-	array-size @ 0 do array i + c@   5 .r              { print values with 5 spaces between elements  }
+	array-size @ 0 do add i + c@   5 .r              { print values with 5 spaces between elements  }
 	i 1 +                                              { set up the conditon to return to next line } 
 	array-dim @ mod 0=                                 { jumping point }
 	if cr                                              { at every 10th value jump }
@@ -55,31 +82,35 @@ CREATE SEED  123475689 ,
    SWAP MOD ;
    
    
-: random_! ( n -- array )                  { word for entering random number 0 - 9 }
+: random_! (  -- array )                   { word for entering random number 0,1 }
 	
 	array-size @ 0                         { set indices for array }
-	do 9 Rnd array i + c!                  { adding random number to the array }
-	loop ;
+	do 2 Rnd array i + c!                  { adding random number to the array }
+	loop 
+	;                          { store input matrix }
+
+
 
 { -------------------------------------find number of elements in the matrix-------------------------------- }
 
  
-create count_ar 4 9 * allot
+create count_ar 4 2 * allot                                                                   { ------create 32 bits array for counter-------- } 
 
-: reset_cou 36 0 do 0 count_ar  i + ! loop ;
+: reset_cou 8 0 do 0 count_ar  i + ! loop ;                                                  { ------reset the counter to 0------------- }
 
-: show_cou
+: show_cou     ( -- print counter table  )
 	
 	cr
 	." number "
 	cr                                   
-	9 0 do i  7 .r  loop                                                { making titles }
+	2 0 do i  7 .r  loop                                                { making titles }
 	cr
 	." counts "
 	cr
-	36 0 do i 4 mod 0= if count_ar i + @  7 .r then loop ;              { display number of counts from every 4th element }
+	8 0 do i 4 mod 0= if count_ar i + @  7 .r then loop ;              { display number of counts from every 4th element }
 
-: count 
+
+: count       ( --- )                                                          { ------count the number from global array (array) and store the counts into local array (count_ar)------- }
 	reset_cou                                                                  { reset counter to 0 }
 	cr 
 	array-size @ 0 
@@ -91,12 +122,14 @@ create count_ar 4 9 * allot
 	loop loop ;
 	
 : c              { testing counter for number 1 }
+	reset_cou 
+	count_ar locals| add |
 	cr 
 	array-size @ 0 
 	do  
 	array i + c@ 
 	1 =
-	if count_ar 1 4 * + @     1 +     count_ar 1 4 *   + ! then              
+	if add 1 4 * + @     1 +     count_ar 1 4 *   + ! then              
 	loop ;
 
 
@@ -194,6 +227,8 @@ create count_ar 4 9 * allot
 	array-size @ array-dim @ locals| n nn add |
 	 add
 	;
+        
+ 
 : next_gen ( address---- print out yonnger generations ) 
 
 	
@@ -243,6 +278,9 @@ create count_ar 4 9 * allot
 	
 : gen ( ---- print out yonnger generations ) 
 	
+	cr ." generation " 0 .
+	array_ini show
+	
 	begin
 	
 	array  #_neighbour                  { generate automaticlly }
@@ -283,14 +321,22 @@ create count_ar 4 9 * allot
        endcase 
 	   
   then  
+  
   loop 
   
+  
+  cr ." generation " figure @ 1 + dup figure ! .
   array show                               { print next generation }
   
   
   1000 ms
   key?
-  until ;                     
+  until 
+  
+  
+  cr cr ." end of display " 
+  
+   ;                     
 
 
 { ----------------------------------------------command----------------------------------------------------- } 
@@ -310,17 +356,6 @@ array_#_live   show           { see the matrix for counts of alived neighbours }
 
 \array next_gen                { manully generates }
 \gen                           { automaticlly generates the generations , break when key is pressed }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
