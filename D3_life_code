@@ -1,0 +1,915 @@
+
+{ ---------------------------------------------------------------------------------------- }
+{                                                                                          }
+{ Words to create bitmap image files ( .bmp) in memory and display them as part of         } 
+{ a real time data visualisation routine - fixed and stretchable window version V6.        }
+{                                                                                          }
+{ This version prints the .bmp into windows separate from the console, requiring some      }
+{ additional operating system specific (Windows, Mac OSX etc) code to build and "talk"     }
+{ to the new window.                                                                       }
+{                                                                                          }
+{ Note that bmp x size must be integer divisible by 4 to avoid display glitches without    }
+{ padding line ends - this is a general feature of the bmp file format and is not codes    }
+{ specific.  bmp x sizes will be rounded down to the nearest factor of as a result 4.      }
+{                                                                                          }
+{ Two methods are provided to write the .bmp to the screen, the first uses the Windows     }
+{ call SetDIBitsToDevice and writes and image with single 1x1 pixels for each cell, the    }
+{ second uses the call StretchDIBits which allows stretching of a .bmp image to fill the   }
+{ available window - useful for "magnifying" and image so that individual pixels are       }
+{ easier to view.  Functions of this kind are typically hardware accelerated by graphics   }
+{ cards and so relatively "fast".                                                          }
+{                                                                                          }
+{        Roland Smith, V6 revised 26/11/2020 For 3rd Year Lab D3 Experiment                }
+{                      V6b        03/11/2020 - Internal random number function Rnd         }
+{                      V6c        09/11/2020 - Added go-dark set set reset close example   }
+{                                                                                          }
+{ ---------------------------------------------------------------------------------------- }
+
+{                                Global constants and variables                            }
+
+
+10 Constant Update-Timer  { Sets windows update rate - lower = faster refresh            }
+
+variable bmp-x-size     { x dimension of bmp file                                        }
+
+variable bmp-y-size     { y dimension of bmp file                                        }
+
+variable bmp-size       { Total number of bmp elements = (x * y)                         }
+
+variable bmp-address    { Stores start address of bmp file # 1                           }
+
+variable bmp-length     { Total number of chars in bmp including header block            }
+
+variable bmp-x-start    { Initial x position of upper left corner                        }
+
+variable bmp-y-start    { Initial y position of upper left corner                        }
+
+variable bmp-window-handle  { Variable to store the handle used to ID display window     }
+
+
+
+{                                      variables for life rules                                 }
+
+
+
+variable array-size                    { number of elements for the square matrix  }
+variable array-dim                     { dimension number for the square matrix }
+variable live-cell                     { number or symbol that represent live cell }
+variable figure                        { for number the generations }
+variable delay                         { delay for showing each gen }
+
+
+{  change variables  }
+
+8 constant a
+
+a array-dim !
+a square array-size !
+1 live-cell !
+0 figure !   
+
+1000 delay !                           { 1000 ms }
+
+a bmp-x-size !                              { Set x size of bmp in pixels             }
+
+a bmp-y-size !                              { Set y size of bmp in pixels             }
+
+{ ------------- }
+
+bmp-x-size @ 4 / 1 max 4 *  bmp-x-size !       { Trim x-size to integer product of 4     }
+
+bmp-x-size @ bmp-y-size @ * bmp-size !         { Find number of pixels in bmp            }
+
+bmp-size   @ 3 * 54 +       bmp-length !       { Find length of bmp in chars inc. header }
+
+100 bmp-x-start !                              { Set x position of upper left corner     }
+
+100 bmp-y-start !                              { Set y position of upper left corner     }
+
+: bmp-Wind-Name Z" BMP Display " ;             { Set capion of the display window # 1    }
+
+
+
+
+{ -----------------------------------useful words--------------------------------------- }
+
+
+: clear  (  -- remove stack values )
+	depth 1 + 1 do i drop . loop ;             { depth 1 + is the number of values in stack +1, since the loop take n-1 as  the end }
+                                               { start with 1, operate the drop for the index appointed value in stack, drop from the top }
+
+: square 
+	dup * ;
+
+{ -----------------------------------Global array -------------------------------------- }
+
+
+
+	
+array-size @   allocate drop constant array             (  array store generations )      
+				                                                                    { create n*n elements , drop the 0 flag, return address to top stack }
+
+array-size @   allocate drop constant array_#_live      ( number of live neighbours around the current element )     
+                                                                                    { creat n*n elements, drop the 0 flag, return address to top stack } 
+																					
+array-size @   allocate drop constant array_ini         ( array for storing input generation )
+
+
+
+
+
+{ -------------------------  Random number routine for testing ------------------------- } 
+
+CREATE SEED  123475689 ,
+
+: Rnd ( n -- rnd )   { Returns single random number less than n }
+   SEED              { Minimal version of SwiftForth Rnd.f      }
+   DUP >R            { Algorithm Rick VanNorman  rvn@forth.com  }
+   @ 127773 /MOD 
+   2836 * SWAP 16807 * 
+   2DUP > IF - 
+   ELSE - 2147483647 +  
+   THEN  DUP R> !
+   SWAP MOD ;
+
+{ --------------------------- Words to create a bmp file in memory ----------------------- }
+
+
+: Make-Memory-bmp  ( x y  -- addr )        { Create 24 bit (RGB) bitmap in memory          }
+  0 Locals| bmp-addr y-size x-size |
+  x-size y-size * 3 * 54 +                 { Find number of bytes required for bmp file    }
+  chars allocate                           { Allocate  memory = 3 x size + header in chars }
+  drop to bmp-addr
+  bmp-addr                                 { Set initial bmp pixels and header to zero     }
+  x-size y-size * 3 * 54 + 0 fill
+
+  { Create the bmp file header block }
+
+  66 bmp-addr  0 + c!                      { Create header entries - B                     }
+  77 bmp-addr  1 + c!                      { Create header entries - M                     }
+  54 bmp-addr 10 + c!                      { Header length of 54 characters                } 
+  40 bmp-addr 14 + c!   
+   1 bmp-addr 26 + c!
+  24 bmp-addr 28 + c!                      { Set bmp bit depth to 24                       }
+  48 bmp-addr 34 + c!
+ 117 bmp-addr 35 + c!
+  19 bmp-addr 38 + c!
+  11 bmp-addr 39 + c!
+  19 bmp-addr 42 + c!
+  11 bmp-addr 43 + c!
+ 
+  x-size y-size * 3 * 54 +                 { Store file length in header as 32 bit Dword   }
+  bmp-addr 2 + !
+  x-size                                   { Store bmp x dimension in header               }
+  bmp-addr 18 + ! 
+  y-size                                   { Store bmp y dimension in header               }
+  bmp-addr 22 + ! 
+  bmp-addr                                 { Leave bmp start address on stack at exit      }
+  ;
+
+
+{ ---------------------------------- Stand Alone Test Routines --------------------------- }
+
+
+ : Setup-Test-Memory                                { Create bmps in memory to start with   }
+   bmp-x-size @ bmp-y-size @ make-memory-bmp
+   bmp-address ! 
+   cr ." Created Test bmp " cr
+   ;
+
+
+   Setup-Test-Memory  
+
+
+{ --------------------------- Basic Words to Color bmp Pixels -----------------------------}
+
+
+: Reset-bmp-Pixels  ( addr -- )    { Set all color elements of bmp at addr to zero = black }
+  dup 54 + swap
+  2 + @ 54 - 0 fill
+  ;
+
+ 
+: Random-bmp-Green  ( addr -- )          { Set bmp starting at addr to random green pixels }
+  dup dup 2 + @ + swap 54 + do
+  000                                    { Red   RGB value                                 }
+  255 RND                                { Green RGB value                                 }
+  000                                    { Blue  RGB value                                 }
+  i  tuck c!
+  1+ tuck c!
+  1+      c!      
+  3 +loop
+  ;
+
+
+: Random-bmp-Blue  ( addr -- )            { Set bmp starting at addr to random blue pixels }
+  dup      dup 2 + @    + swap    54 + do
+ 
+  000                                     { Red   RGB value                                }
+  000                                     { Green RGB value                                }
+  255 RND                                 { Blue  RGB value                                }
+  
+  i  tuck c!
+  1+ tuck c!
+  1+      c!      
+  3 +loop
+  ;
+
+
+{ -------------------- Word to display a bmp using MS Windows API Calls -----------------  }
+
+
+Function: SetDIBitsToDevice ( a b c d e f g h i j k l -- res )
+
+: MEM-bmp ( addr -- )                    { Prints bmp starting at address to screen        }
+   [OBJECTS BITMAP MAKES BM OBJECTS]
+   BM bmp!
+   HWND GetDC ( hDC )
+   DUP >R ( hDC ) 1 1 ( x y )            { (x,y) upper right corner of bitmap              }
+   BM Width @ BM Height @ 0 0 0
+   BM Height @ BM Data
+   BM InfoHeader DIB_RGB_COLORS SetDIBitsToDevice DROP  { Windows API calls                }   
+   HWND R> ( hDC ) ReleaseDC DROP ;
+
+
+
+{ ---------------------- bmp Display Window Class and Application ------------------------ }
+{                                                                                          }
+{ Warning, this section contains MS Windows specific code to create and communicate with a }
+{ new display window and will not automatically translate to another OS, e.g. Mac or Linux }
+
+
+0 VALUE bmp-hApp            { Variable to hold handle for default bmp display window     }
+
+
+: bmp-Classname Z" Show-bmp" ;      { Classname for the bmp output class          }
+
+
+: bmp-End-App ( -- res )
+   'MAIN @ [ HERE CODE> ] LITERAL < IF ( not an application yet )
+      0 TO bmp-hApp
+   ELSE ( is an application )
+      0 PostQuitMessage DROP
+   THEN 0 ;
+
+
+[SWITCH bmp-App-Messages DEFWINPROC ( msg -- res ) WM_DESTROY RUNS bmp-End-App SWITCH]
+
+
+:NONAME ( -- res ) MSG LOWORD bmp-App-Messages ; 4 CB: bmp-APP-WNDPROC { Link window messages to process }
+
+
+: bmp-APP-CLASS ( -- )
+      0  CS_OWNDC   OR                  \ Allocates unique device context for each window in class
+         CS_HREDRAW OR                  \ Window to be redrawn if movement / size changes width
+         CS_VREDRAW OR                  \ Window to be redrawn if movement / size changes height
+      bmp-APP-WNDPROC                   \ wndproc
+      0                                 \ class extra
+      0                                 \ window extra
+      HINST                             \ hinstance
+      HINST 101  LoadIcon 
+   \   NULL IDC_ARROW LoadCursor        \ Default Arrow Cursor
+      NULL IDC_CROSS LoadCursor         \ Cross cursor
+      WHITE_BRUSH GetStockObject        \
+      0                                 \ no menu
+      bmp-Classname                     \ class name
+   DefineClass DROP
+  ;
+
+
+: bmp-window-shutdown     { Close bmp display window and unregister classes on shutdown   }               
+   bmp-hApp IF 
+   bmp-hApp WM_CLOSE 0 0 SendMessage DROP
+   THEN
+   bmp-Classname HINST UnregisterClass DROP
+  ;
+
+
+bmp-APP-CLASS                   { Call class for displaying bmp's in a child window     }
+
+13 IMPORT: StretchDIBits
+
+11 IMPORT: SetDIBitsToDevice 
+
+
+{ ----------------------------- bmp Window Output Routines -------------------------------- }
+
+
+: New-bmp-Window-Copy  ( -- res )            \ Window class for "copy" display 
+   0                                         \ exended style
+   bmp-Classname                             \ class name
+   s" BMP Window " pad zplace                \ window title - including bmp number
+   1  (.) pad zappend pad
+   WS_OVERLAPPEDWINDOW                       \ window style
+   bmp-x-start @ bmp-y-start @               \ x   y Window position
+   bmp-x-size @ 19 + bmp-y-size @ 51 +       \ cx cy Window size
+   0                                         \ parent window
+   0                                         \ menu
+   HINST                                     \ instance handle
+   0                                         \ creation parameters
+   CreateWindowEx 
+   DUP 0= ABORT" create window failed" 
+   DUP 1 ShowWindow DROP
+   DUP UpdateWindow DROP 
+   ;
+
+
+: New-bmp-Window-Stretch  ( -- res )         \ Window class for "stretch" display 
+   0                                         \ exended style
+   bmp-Classname                             \ class name
+   s" BMP Window " pad zplace                \ window title - including bmp number
+   1  (.) pad zappend pad
+   WS_OVERLAPPEDWINDOW                       \ window style
+   bmp-x-start @ bmp-y-start @               \ x   y Window position
+   bmp-x-size @ 250 max 10 + 
+   bmp-y-size @ 250 max 49 +                 \ cx cy Window size, min start size 250x250
+   0                                         \ parent window
+   0                                         \ menu
+   HINST                                     \ instance handle
+   0                                         \ creation parameters
+   CreateWindowEx 
+   DUP 0= ABORT" create window failed" 
+   DUP 1 ShowWindow DROP
+   DUP UpdateWindow DROP 
+   ;
+
+
+: bmp-to-screen-copy  ( n -- )            { Writes bmp at address to window with hwnd   }
+  bmp-window-handle @ GetDC               { handle of device context we want to draw in }
+  2 2                                       { x , y of upper-left corner of dest. rect.   }
+  bmp-x-size @ 3 -  bmp-y-size @          { width , height of source rectangle          }
+  0 0                                     { x , y coord of source rectangle lower left  }
+  0                                       { First scan line in the array                }
+  bmp-y-size @                            { number of scan lines                        }
+  bmp-address @ dup 54 + swap 14 +        { address of bitmap bits, bitmap header       }
+  0
+  SetDIBitsToDevice drop
+  ;
+
+
+: bmp-to-screen-stretch  ( n addr -- )    { Stretch bmp at addr to window n             }
+  0 0 0 
+  Locals| bmp-win-hWnd bmp-win-x bmp-win-y bmp-address |
+  bmp-window-handle @
+  dup to bmp-win-hWnd                     { Handle of device context we want to draw in }
+  PAD GetClientRect DROP                  { Get x , y size of window we draw to         }
+  PAD @RECT 
+  to bmp-win-y to bmp-win-x
+  drop drop                             
+  bmp-win-hWnd GetDC                      { Get device context of window we draw to     }
+  2 2                                     { x , y of upper-left corner of dest. rect.   }   
+  bmp-win-x 4 - bmp-win-y 4 -             { width, height of destination rectangle      }
+  0 0                                     { x , y of upper-left corner of source rect.  }
+  bmp-address 18 + @                      { Width of source rectangle                   }
+  bmp-address 22 + @                      { Height of source rectangle                  }
+  bmp-address dup 54 + swap 14 +          { address of bitmap bits, bitmap header       }
+  0                                       { usage                                       }
+  13369376                                { raster operation code                       } 
+  StretchDIBits drop
+  ;
+
+
+: go-copy                             { Copy bmp to screen at 1x1 pixel size            }
+  cr ." Starting copy to window test " 
+  cr cr
+  New-bmp-Window-copy                 { Create new "copy" window                        }
+  bmp-window-handle !                 { Store window handle                             }
+  begin                               { Begin update / display loop                     }
+  bmp-address @ Random-bmp-Green      { Add random pixels to .bmp in memory             }
+  bmp-address @ bmp-to-screen-copy    { Copy .bmp to display window                     }
+  delay @ ms                              { Delay for viewing ease, reduce for higher speed }
+  key?                                { Break test loop on key press                    }
+  until
+  cr ." Ending copy to window test " 
+  cr cr 
+  ;
+ 
+
+: go-stretch                          { Draw bmp to screen at variable pixel size       }
+  cr ." Starting stretch to window test " 
+  cr cr
+  New-bmp-Window-stretch              { Create new "stretch" window                     }
+  bmp-window-handle !                 { Store window handle                             }
+  begin                               { Begin update / display loop                     }
+  bmp-address @ Random-bmp-Blue       { Add random pixels to .bmp in memory             }
+  bmp-address @ bmp-to-screen-stretch { Stretch .bmp to display window                  }
+  delay @ ms                              { Delay for viewing ease, reduce for higher speed }
+  key?                                { Break test loop on key press                    }
+  until 
+  cr ." Ending stretch to window test " 
+  cr cr
+  ;
+
+
+: go-dark                              { Draw bmp to screen at variable pixel size       }
+  New-bmp-Window-stretch
+  bmp-window-handle !
+  bmp-address @ Random-bmp-Blue        { Show random blue pixels for a second            }
+  bmp-address @ bmp-to-screen-stretch 
+  delay @ ms
+  bmp-address @ Random-bmp-Green       { Show random greenpixels for a second            }
+  bmp-address @ bmp-to-screen-stretch
+  delay @ ms
+  bmp-address @ reset-bmp-pixels       { Reset .bmp to all black 0,0,0 RGB values        }
+  bmp-address @ bmp-to-screen-stretch
+  delay @ ms
+  bmp-window-handle @ DestroyWindow drop  { Kill of display window                       }
+  delay @ ms
+  ;
+
+{ ----------------------------- Run Test Output Routines ------------------------------- }
+
+ 
+\  go-copy  { Demo copy to screen routine }
+
+\   go-dark  { Demo set, set, reset to screen routine }
+
+\   go-stretch  { Demo stretch to screen routine }
+
+{ ----------------------------------------------------------------------------------------------------------------------------------------------------------------- }
+
+{ ----------------------------- actual output Routines ------------------------------- }
+
+: pattern  ( addr -- )            { Set bmp starting at addr to  input array }
+
+	locals| add |
+	
+	array-size @ 0 do 
+  add add   add 2 + @    + swap  54 + do
+ 
+ array j + c@
+	 
+	
+	1 = 
+	if
+  000                                     { Red   RGB value                                }
+  000                                     { Green RGB value                                }
+  255 	                                  { Blue  RGB value                                }
+  
+  i  tuck c!
+  1+ tuck c!
+  1+      c!
+  
+	else
+  000                                     { Red   RGB value                                }
+  000                                     { Green RGB value                                }
+  000                                     { Blue  RGB value                                }
+  
+  i  tuck c!
+  1+ tuck c!
+  1+      c!
+  
+ then      3 +loop loop
+  ;
+
+
+: show-copy                             { Copy bmp to screen at 1x1 pixel size            }
+  cr ." Starting copy to window test " 
+  cr cr
+  New-bmp-Window-copy                 { Create new "copy" window                        }
+  bmp-window-handle !                 { Store window handle                             }
+  begin                               { Begin update / display loop                     }
+  bmp-address @ pattern                { Add array pixels to .bmp in memory             }
+  bmp-address @ bmp-to-screen-copy    { Copy .bmp to display window                     }
+  delay @ ms                          { Delay for viewing ease, reduce for higher speed }
+  key?                                { Break test loop on key press                    }
+  until
+  cr ." Ending copy to window test " 
+  cr cr 
+  ;
+ 
+
+: show-stretch                          { Draw bmp to screen at variable pixel size       }
+  cr ." Starting stretch to window test " 
+  cr cr
+  New-bmp-Window-stretch              { Create new "stretch" window                     }
+  bmp-window-handle !                 { Store window handle                             }
+  
+  bmp-address @ pattern               { Add array pixels to .bmp in memory             }
+  bmp-address @ bmp-to-screen-stretch { Stretch .bmp to display window                  }
+  
+
+  ;
+
+
+{ -------------------------------- mian code for life rules -------------------------------- }
+
+ : reset ( address --- )
+    array-size @ 0 FILL ;
+	
+
+: store_input  ( ---- )                                { store input array }
+
+	array-size @ 0 do array i + c@  array_ini i + c! loop ;
+
+
+
+
+: show 	( address -- print array in matrix form with numbers )             { word to print the array defined }
+	locals| add |
+	cr                                                 { start from the next line }
+	array-size @ 0 do add i + c@   5 .r              { print values with 5 spaces between elements  }
+	i 1 +                                              { set up the conditon to return to next line } 
+	array-dim @ mod 0=                                 { jumping point }
+	if cr                                              { at every nth value jump }
+	then loop ;
+
+: show-s ( address -- print array in matrix form with symbols )
+
+	locals| add |
+	cr                                                 { start from the next line }
+	
+	array-size @ 0 do add i + c@   
+	
+	1 = if 64 emit
+	else 32 emit
+	then
+	                                                   { print symbols  }
+	i 1 +                                              { set up the conditon to return to next line } 
+	array-dim @ mod 0=                                 { jumping point }
+	if cr                                              { at every 10th value jump }
+	then loop ;
+
+
+{ ---------------------------------------adding random number to array-------------------------------------  }
+
+CREATE SEED  123475689 ,
+
+: Rnd ( n -- rondam number )   { Returns single random number less than n }
+   SEED              { Minimal version of SwiftForth Rnd.f      }
+   DUP >R            { Algorithm Rick VanNorman  rvn@forth.com  }
+   @ 127773 /MOD 
+   2836 * SWAP 16807 * 
+   2DUP > IF - 
+   ELSE - 2147483647 +  
+   THEN  DUP R> !
+   SWAP MOD ;
+   
+   
+: random_! ( address -- array )                   { word for entering random number 0,1 }
+	locals| add |
+	array-size @ 0                         { set indices for array }
+	do 2 Rnd add i + c!                  { adding random number to the array }
+	loop 
+	;                          { store input matrix }
+	
+	
+
+{ ---------------------------------------adding specific number to array-------------------------------------  }
+
+: array_! ( n x y -- array )                                    { index strarts with 0 } 
+         array  array-dim @ locals| n add |               { input format ( value x y ) }
+		  
+	dup n <                                                { copy the y value and take it to compare  }
+	if n *                                                 { check index and do operation }
+		else cr ." y wrong index " .
+	then                                                    { 10 * y is at the top stack }
+	
+	1 pick n <                                             { take x value out and compare }
+	if +                                                    { check index and do + operation }
+		else cr ." x wrong index " .
+	then                                                    { array index 10 * y + x is now at the top stack }
+	
+	1 pick 256 <                                            { take n value out and compare }
+    if add + c!                                     { check index and do writting operation }
+		else abort" n wrong size "
+	then
+	
+	 ;
+
+: array_@  ( x y -- )                                     { index strarts with 0 }
+  
+	array  array-dim @ locals| n add |
+	
+	dup n <                                               { copy the y value and take it to compare  }
+	if n *                                                { check index }
+		else cr ." y wrong index " .
+	then                                                   { 10 * y is at the top stack }
+	1 pick n <                                            { take x value out and compare }
+	if +                                                   { check index }
+		else cr ." x wrong index " .
+	then                                                   { array index 10 * y + x is now at the top stack }
+	add + c@ ;                                     { top stack is used to read-in the array }
+
+
+
+{ -------------------------------------Stats in the matrix-------------------------------- }
+
+
+
+create count_ar 5 4 * allot                                                                   { ------create 32 bits array for counter-------- } 
+create count_arb 5 4 * allot
+
+: reset  ( address ---- )
+
+	locals| add | 
+	20 0 do 0  add  i + ! loop ;                                                  { ------reset the counter to 0------------- }
+
+{ -------------counter-------------- }
+
+: show_cou     ( address -- print counter table  )
+	
+	locals| add |                      
+	
+	." number "
+	cr                                   
+	2 0 do i  7 .r  loop                                                { making titles }
+	cr
+	." counts "
+	cr
+	8 0 do i 4 mod 0= if add i + @  7 .r then loop ;              { display number of counts from every 4th element }
+
+
+: count       (  ---store counts to count_ar )                                 { ------count the number from global array (array) and store the counts into first 8 bites (count_ar)------- }
+	
+	count_ar reset                                                                  { reset counter to 0 }
+	cr 
+	array-size @ 0 
+	do  2 0 do                                     
+	array j + c@                                                               { reading element from array }
+    i =                                                                        { the reading is used to compare with number 0~9 } 
+	if count_ar i 4 * + @    1 +    count_ar i 4 *   + !                       { taking every 4 th value in 32 bit array, if the reading equals 0~9 the increment the correponding counts stack }
+	then
+	loop loop ;
+
+: count_be       ( --- store counts to count_arb )                             { ------count the number from global array (array) and store the counts into first 8 bites (count_arb)------- }
+	count_arb reset                                                                  { reset counter to 0 }
+	cr 
+	array-size @ 0 
+	do  2 0 do                                     
+	array j + c@                                                               { reading element from array }
+    i =                                                                        { the reading is used to compare with number 0~9 } 
+	if count_arb i 4 * + @    1 +    count_arb i 4 *   + !                       { taking every 4 th value in 32 bit array, if the reading equals 0~9 the increment the correponding counts stack }
+	then
+	loop loop ;
+	
+	
+{ ----------------------------stats (# of current alives, # of current died, # of revive, # of death, # of generation)---------------------- }
+
+: gen_step                                    { number of generation } 
+	figure @    count_ar 4 4 *   + ! ;
+
+: envolve
+	
+	                                                    
+	
+	count_arb 0 4 * + @  count_ar 0 4 * + @   - abs       count_ar 2 4 * + !
+	count_arb 1 4 * + @  count_ar 1 4 * + @   - abs       count_ar 3 4 * + !
+	
+	
+	;
+	
+
+: show_stats   ( ----print stats table )
+
+	count_ar reset                 { reset the counter array }
+	
+	count                     { store current dead and alive cells into first 8 bytes }
+	gen_step                  { store time steps to the last 4 bytes }
+	envolve
+	
+	cr
+	." title "
+	."        0"  ."        1" ."     revive" ."    death" ."     gen"    
+	cr
+	." stats "
+	cr
+	20 0 do i 4 mod 0= if count_ar i + @  8 .r then loop 
+	;
+ 
+
+{ -----------------------------------------------life rule---------------------------------------------------- }
+
+
+: #_neighbour ( array address --- )
+	
+	
+	array-size @ array-dim @ live-cell @ locals| x n nn add |                      { define local constants n - array-dim, nn - array-size, x - live cell number }
+																				   { add - entered address of array }
+	nn 0 do 
+	
+	{ not at boundry }
+	{ add the reading from 8 surrounding elements and store to array_#_live }
+	
+	add i 1 +  + c@  add i 1 -  + c@  +
+	add i n +  + c@  +  add i n -  + c@  +
+	add i n + 1 -  + c@  +  add i n + 1 +  + c@  +
+	add i n - 1 -  + c@  +  add i n - 1 +  + c@  +
+	array_#_live i + c!
+	
+	
+	case 
+		i                                                                       { take index from the outter do-loop }
+	{ corners }
+	{ add the reading from 3 surrounding elements and store to array_#_live }
+	 
+		0 of 0 drop                                                             { 0 left top }
+				add i 1 +  + c@  add i n +  + c@  +  add i n + 1 +  + c@  + 
+				array_#_live i + c! endof                                       { add the reading from 3 surrounding elements and store to array_#_live }
+				
+		n 1 - of n 1 - drop                                                    { n-1 right top }
+				add i 1 -  + c@  add i n +  + c@  +  add i n + 1 -  + c@  +
+				array_#_live i + c! endof                                       
+				
+		n square n - of n square n - drop                                     { n^2 -n left bot }  
+				add i 1 +  + c@  add i n -  + c@  +  add i n - 1 +  + c@  +
+				array_#_live i + c! endof                                    
+				
+		n square 1 - of n square 1 - drop                                     { n^2 - 1 right bot }
+				add i 1 -  + c@  add i n -  + c@  +  add i n - 1 -  + c@  +
+				array_#_live i + c! endof                                       
+		
+	endcase 
+	
+	{ sides }
+	{ add the reading from 5 surrounding elements and store to array_#_live }
+	
+	
+		n 1 -     1                  do  i j =                                                  { 1 ~ n-2 top side, compare the indices from 2 loops }
+			
+				if add i 1 -  + c@  add i 1 +  + c@  +  add i n +  + c@  +                       
+				add i n + 1 -  + c@  +  add i n + 1 +  + c@  +
+				array_#_live j + c!     
+				 
+		then loop
+		
+		
+		n square 1 -     n square n - 1 +        do i j =                                                   { (n-1)n+1, (n-1)n+2,..., n^2 -2  bot side }
+		
+				if add i 1 -  + c@  add i 1 +  + c@  +  add i n -  + c@  +
+				add i n - 1 -  + c@  +  add i n - 1 +  + c@  +
+				array_#_live j + c!
+		
+		then loop
+		
+		
+		
+		n square n 2 * - 1 +     n        do i j =                                                    { n, 2n ....., n(n-2) left side }
+				
+				if add i n +  + c@  add i n -  + c@  +  add i 1 +  + c@  +
+				add i 1 + n -  + c@  +  add i 1 + n +  + c@  +
+				array_#_live j + c!
+				
+		then n +loop                                                                                  { jump n elements for entering the following row, inner loop }
+		
+	
+	
+		n square n -    n 2 * 1 -      do i j =                                                     { 2n-1,..., (n-1)n-1 right side }
+				
+				if add i n +  + c@  add i n -  + c@  +  add i 1 -  + c@  +
+				add i 1 - n -  + c@  +  add i 1 - n +  + c@  +
+				array_#_live j + c!
+	
+	
+		then n +loop                                                                                   { jump n elements for entering the following row, inner loop }
+	
+	
+		
+	loop ;
+
+ 
+: next_gen ( address---- print out next generation ) 
+
+	
+	#_neighbour                  { apply it to input array }
+	
+	array-size @ 0  do
+	
+	array i + c@ 
+	
+	{ dead cell }	
+	0=                                   
+	if array_#_live i + c@                 { reading alive neighbours for each cell }
+	
+		case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 0 array i + c! endof
+             3 of 1 array i + c! endof     { revive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	
+	{ live cell }	
+	else array_#_live i + c@               { reading alive neighbours for each cell }   
+	
+        case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 1 array i + c! endof     { survive }
+             3 of 1 array i + c! endof     { survive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	   
+  then  
+  loop 
+  
+  array show                               { print next generation }
+  
+   ;                             
+
+
+: show-gen ( ---- print out yonnger generations ) 
+	
+	0 figure !                          { reset figure index }
+	cr ." generation " 0 .
+	array show-s
+	
+	count                               { only count number of alive and dead entried cells  }
+	count_ar show_cou
+	
+	begin
+	
+	count_be                            { count the previous grid and store the counts to count_arb }
+	
+	array  #_neighbour                  { generate next generation }
+	
+	array-size @ 0  do
+	
+	array i + c@ 
+	
+	{ dead cell }	
+	0=                                   
+	if array_#_live i + c@                 { reading alive neighbours for each cell }
+	
+		case                               { life rules is defined here---------------------------------------------------------- }
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 0 array i + c! endof
+             3 of 1 array i + c! endof     { revive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	
+	{ live cell }	
+	else array_#_live i + c@               { reading alive neighbours for each cell }   
+	
+        case
+             0 of 0 array i + c! endof
+             1 of 0 array i + c! endof
+             2 of 1 array i + c! endof     { survive }
+             3 of 1 array i + c! endof     { survive }
+             4 of 0 array i + c! endof
+             5 of 0 array i + c! endof
+             6 of 0 array i + c! endof
+             7 of 0 array i + c! endof
+             8 of 0 array i + c! endof
+       endcase 
+	   
+  then  
+  
+  loop 
+  
+  
+  cr ." generation " figure @ 1 + dup figure ! .
+  array show-s                               { print next generation }
+  
+  show_stats                                        { measurements of current grid }
+  
+  cr cr
+  
+  delay @ ms
+  key?
+  until 
+  
+  
+  cr cr ." end of display " 
+  
+   ;                     
+
+
+{ ----------------------------------------------commands----------------------------------------------------- } 
+
+array reset                    { reset input array, can store random or specific input }
+array_#_live reset             { reset the array for storing alived neighbours in each generation }
+array_ini reset                { reset the array which store the initial input }
+
+
+\array random_!                 { random input }
+
+
+{ -----test for 5*5 matrix, compare with ex 4---------- }
+
+\1 2 1  1 2 3  1 1 2  1 3 2  1 3 3 array_!  array_! array_! array_! array_!        { first test ex4.1 } 
+
+1 0 2  1 1 2  1 2 2  1 3 2  1 4 2 array_!  array_! array_! array_! array_!         { ex4.3 }
+
+{ ----------------------------------------------------- }
+
+{ save inital stats }
+store_input                    { store the input array }
+
+
+
+\show-gen                           { automaticlly generates the generations , break when key is pressed }
+
